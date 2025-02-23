@@ -17,12 +17,20 @@ def generateTopology(numNodes, numLinks):
         n1, n2 = random.sample(range(1, numNodes + 1), 2)
         if not G.has_edge(n1, n2):
             G.add_edge(n1, n2)
-    
-    return G
+    for u,v in G.edges():
+        G[u][v]['weight'] = random.randint(1,100) #ms
+        #G[u][v]is networkx.Graph datatype, returns dictionary of attributes for each node
+    #G.add_edge('A', 'B', weight=random.randint(1, 100))
 
+    return G
+    
 def saveTopology(G, outputFile): #using networkx package
     plt.figure(figsize=(8, 6))
-    nx.draw(G, with_labels=True, node_color='lightblue', edge_color='gray', node_size=500)
+    pos = nx.spring_layout(G)
+    edge_labels = {(u,v): G[u][v]['weight'] for u,v in G.edges()} #add weight for each node pair
+    nx.draw(G, with_labels=True, node_color='lightblue', edge_color='gray', node_size=500) #draw graph
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='pink') #add edge weights (latency) 
+    #todo: fix orientation issues with the labels
     plt.savefig(outputFile, format="pdf")
     plt.close()
 

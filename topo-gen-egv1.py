@@ -28,9 +28,8 @@ def saveTopology(G, outputFile): #using networkx package
     plt.figure(figsize=(8, 6))
     pos = nx.spring_layout(G)
     edge_labels = {(u,v): G[u][v]['weight'] for u,v in G.edges()} #add weight for each node pair
-    nx.draw(G, with_labels=True, node_color='lightblue', edge_color='gray', node_size=500) #draw graph
+    nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=500) #draw graph
     nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='pink') #add edge weights (latency) 
-    #todo: fix orientation issues with the labels
     plt.savefig(outputFile, format="pdf")
     plt.close()
 

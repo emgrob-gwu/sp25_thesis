@@ -22,6 +22,8 @@ def generateTopology(numNodes, numLinks):
         G[u][v]['weight'] = random.randint(1,100) #ms
         #G[u][v]is networkx.Graph datatype, returns dictionary of attributes for each node
     #G.add_edge('A', 'B', weight=random.randint(1, 100))
+    for node in G.nodes():
+        G.nodes[node]['CPU'] = random.randint(1, 10)  # Assign random CPU
 
     return G
 
@@ -46,16 +48,17 @@ def saveTopology_old(G, outputFile): #using networkx package
     plt.figure(figsize=(8, 6))
     pos = nx.spring_layout(G)
     edge_labels = {(u,v): G[u][v]['weight'] for u,v in G.edges()} #add weight for each node pair
-    #print(G.edges([3,1]))
     nx.draw(G, pos, with_labels=True, node_color='gray', edge_color='gray', node_size=500) #draw graph
 
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='pink') #add edge weights (latency) 
+    cpu_labels = {node: f"CPU: {G.nodes[node]['CPU']}" for node in G.nodes()}
+    print(cpu_labels)
+    nx.draw_networkx_edge_labels(G, pos, labels=cpu_labels, edge_labels=edge_labels, font_color='pink') #add edge weights (latency) 
     plt.savefig(outputFile, format="pdf")
     plt.close()
 
 def saveTopology(G, outputFile): #added different colors
     plt.figure(figsize=(8, 6))
-    pos = nx.spring_layout(G)
+    pos = nx.spring_layout(G,seed=42)
     edge_labels = {(u, v): G[u][v]['weight'] for u, v in G.edges()} 
 
     node_colors = []
@@ -64,6 +67,9 @@ def saveTopology(G, outputFile): #added different colors
             node_colors.append('red')  
         else:
             node_colors.append('gray') 
+
+    cpu_labels = {node: f"CPU: {G.nodes[node]['CPU']}" for node in G.nodes()}
+    nx.draw_networkx_labels(G, pos, labels=cpu_labels, font_color='blue', font_size=10, verticalalignment='bottom')
 
     nx.draw(G, pos, with_labels=True, node_color=node_colors, edge_color='gray', node_size=500)
     nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='pink')  
@@ -107,8 +113,6 @@ def place_single_node(G, new_node_name, numNodes): #currently integrates one nod
 
 def place_topology(G, new_topo, numNodes): #integrates new topology onto existing network 
     mapping = {}
-   #print(G.nodes())
-    print(new_topo.nodes())
 
     #new_topo is a networkx datatype
     existing_nodes = np.arange(1, numNodes+1)
@@ -118,6 +122,10 @@ def place_topology(G, new_topo, numNodes): #integrates new topology onto existin
         node_to_rename = np.random.choice(existing_nodes)
         new_name = new_topo.nodes[node].get("label", node)
         mapping[node_to_rename] = new_name
+
+        #CPU update:
+        if G.nodes[node_to_rename]['CPU'] >0: #CPU cannot go below 0
+            G.nodes[node_to_rename]['CPU']-=1 #decrease CPU by one for each node (can change this)
         #existing_nodes=np.delete(existing_nodes,node_to_replace-1)
         existing_nodes=np.delete(existing_nodes,np.where(existing_nodes== node_to_rename))
 

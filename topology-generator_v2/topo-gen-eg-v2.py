@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 
 
 def generateTopology(numNodes, numLinks):
-    """Generates a network topology with random CPU values on nodes and bandwidth on edges."""
     G = nx.Graph()
     G.add_nodes_from(range(1, numNodes + 1))
 
@@ -38,18 +37,20 @@ def generateTopology_new(numNodes, numLinks):
     return G
 
 
-def saveTopology(G, outputFile, placed_nodes=None, placed_edges=None):
-    """Saves the topology as a PDF with different colors for placed nodes and edges."""
+def saveTopology(G, outputFile, placed_nodes=None, placed_edges=None, label_mapping=None):
     plt.figure(figsize=(8, 6))
     pos = nx.spring_layout(G, seed=42)
 
-    #edge_labels = { (u,v): f"{G[u][v]['bandwidth']}ms, {G[u][v]['bandwidth']}Gbps" for u, v in G.edges() }
     edge_labels = {(u, v): f"{G[u][v].get('bandwidth', 'N/A')} Mbps" for u, v in G.edges()}
 
-    # Ensure placed_nodes and placed_edges are valid lists (default to empty)
+    # Ensure valid lists
     placed_nodes = placed_nodes if placed_nodes is not None else []
-    #print(placed_nodes)
     placed_edges = placed_edges if placed_edges is not None else []
+    
+    # Default labels to numerical unless mapped
+    labels = {node: str(node) for node in G.nodes()}
+    if label_mapping:
+        labels.update(label_mapping)  # Apply custom letter labels for red nodes
 
     # Separate edges into gray (original) and red (placed)
     gray_edges = [edge for edge in G.edges() if edge not in placed_edges]
@@ -59,20 +60,16 @@ def saveTopology(G, outputFile, placed_nodes=None, placed_edges=None):
     node_colors = ['red' if node in placed_nodes else 'gray' for node in G.nodes()]
 
     # Draw the network
-    nx.draw(G, pos, with_labels=True, node_color=node_colors, edge_color='gray', node_size=500)  # Original network in gray
-    nx.draw_networkx_edges(G, pos, edgelist=red_edges, edge_color='red', width=2)  # Highlight placed edges in red
+    nx.draw(G, pos, labels=labels, with_labels=True, node_color=node_colors, edge_color='gray', node_size=500)
+    nx.draw_networkx_edges(G, pos, edgelist=red_edges, edge_color='red', width=2)
     nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='blue', font_size=8)
 
-    # Add labels
-   # cpu_labels = {node: f"CPU: {G.nodes[node].get('CPU', 'N/A')}" for node in G.nodes()}
-    #nx.draw_networkx_labels(G, pos, labels=cpu_labels, font_color='blue', font_size=10, verticalalignment='bottom')
     plt.savefig(outputFile, format="pdf")
     plt.close()
 
 
 
 def generate_all_possible_placements(G, new_topo):
-    """Generate all possible placements of new_topo onto G using existing connections."""
     from itertools import permutations
 
     new_topo_nodes = list(new_topo.nodes())
@@ -88,6 +85,9 @@ def generate_all_possible_placements(G, new_topo):
         if any(node not in mapping for node in new_topo_nodes):
             continue  # Skip if mapping is incomplete
 
+        # Create a label mapping that keeps red nodes as letters
+        label_mapping = {perm[i]: new_topo_nodes[i] for i in range(len(new_topo_nodes))}
+
         # Determine placed nodes
         placed_nodes = list(mapping.values())
 
@@ -99,10 +99,8 @@ def generate_all_possible_placements(G, new_topo):
                 shortest_path = nx.shortest_path(G, mapped_u, mapped_v)  # Find shortest existing path
                 placed_edges.extend(zip(shortest_path[:-1], shortest_path[1:]))  # Add path edges
 
-        # Save possibility
-        saveTopology(G, f"possibility_{idx + 1}.pdf", placed_nodes, placed_edges)
-
-
+        # Save possibility with updated labels
+        saveTopology(G, f"possibility_{idx + 1}.pdf", placed_nodes, placed_edges, label_mapping)
 
 
 def main():
@@ -113,11 +111,11 @@ def main():
     numNodes = int(config["numNodes"])
     numLinks = int(config["numLinks"])
     
-    # Generate and save the original network
+    #original network (we know connections and bandwidth between each)
     G = generateTopology(numNodes, numLinks)
     saveTopology(G, "original_network.pdf")
     
-    # Generate and save the topology to be placed
+    # topology to be placed (no constraints)
     new_topo = generateTopology_new(3, 3)
     saveTopology(new_topo, "placed_topo.pdf", placed_nodes=new_topo.nodes())
     

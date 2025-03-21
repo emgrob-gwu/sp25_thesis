@@ -24,7 +24,7 @@ def generate_service_instance():
     service_type = random.choice(['star', 'clique'])
     G = nx.Graph()
     
-    if service_type == 'star':
+    if service_type == 'star': #note: these are fixed-shape topologies for now
         center = 'S1'
         nodes = ['S2', 'S3', 'S4', 'S5']
         G.add_node(center, CPU=2)
@@ -76,7 +76,7 @@ def update_resource_requirements(G, placements, service_instances):
                 G[path[i]][path[i + 1]]['bandwidth'] += service_G[u][v]['bandwidth']
 
 def save_topology(G, filename, placed_nodes=None, placed_edges=None, label_mapping=None):
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(10, 8))
     pos = nx.spring_layout(G, seed=42)
 
     # Build reverse mapping: physical node -> list of service nodes
@@ -85,20 +85,36 @@ def save_topology(G, filename, placed_nodes=None, placed_edges=None, label_mappi
         for service_node, phys_node in label_mapping.items():
             reverse_mapping.setdefault(phys_node, []).append(service_node)
 
-    # Create labels
+    # Create labels with CPU info
     labels = {}
     for node in G.nodes():
+        label_parts = []
         if node in reverse_mapping:
-            # Join multiple service node names
-            labels[node] = ", ".join(sorted(reverse_mapping[node]))
+            label_parts.append(", ".join(sorted(reverse_mapping[node])))
         else:
-            labels[node] = str(node)
+            label_parts.append(str(node))
+        
+        cpu_value = G.nodes[node]['CPU']
+        label_parts.append(f"CPU: {cpu_value}")
+        
+        labels[node] = "\n".join(label_parts)  # Multi-line label
 
     node_colors = ['red' if node in (placed_nodes or []) else 'gray' for node in G.nodes()]
-    nx.draw(G, pos, labels=labels, with_labels=True, node_color=node_colors, edge_color='gray', node_size=500)
+    nx.draw(G, pos, labels=labels, with_labels=True, node_color=node_colors, edge_color='gray', node_size=800, font_size=8)
     nx.draw_networkx_edges(G, pos, edgelist=placed_edges or [], edge_color='red', width=2)
+
+    # Add bandwidth labels to all edges
+    edge_labels = {}
+    for u, v in G.edges():
+        bw_value = G[u][v]['bandwidth']
+        edge_labels[(u, v)] = f"BW: {bw_value}"
+
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=7)
+
+    plt.tight_layout()
     plt.savefig(filename, format="pdf")
     plt.close()
+
 
 
 def save_service_instance(service_G, filename, service_type):
@@ -118,31 +134,31 @@ def main():
     numNodes = int(config["numNodes"])
     numLinks = int(config["numLinks"])
     numServiceInstances = int(config.get("numServiceInstances", 5))
+    placements_per_instance = int(config.get("placementsPerInstance", 2))  # New config value
     
     # Generate the physical network topology
     G = generate_fixed_topology(numNodes, numLinks)
     save_topology(G, "original_network.pdf")
     
     service_instances = []
-    placements = []
+    all_placements = []
     
     for i in range(numServiceInstances):
-        # Generate a service instance (star or clique)
         service_G, service_type = generate_service_instance()
-        
-        # Save the service instance visualization before placement
         save_service_instance(service_G, f"service_instance_{i + 1}.pdf", service_type)
         
-        # Perform heuristic placement
-        mapping, placed_edges = heuristic_placement(G, service_G)
-        service_instances.append(service_G)
-        placements.append(mapping)
+        instance_placements = []
+        for j in range(placements_per_instance):
+            mapping, placed_edges = heuristic_placement(G, service_G)
+            instance_placements.append(mapping)
+            update_resource_requirements(G, [mapping], [service_G])
+
+            filename = f"service{i + 1}_placement{j + 1}.pdf"
+            save_topology(G, filename, placed_nodes=mapping.values(), placed_edges=placed_edges, label_mapping=mapping)
         
-        # Save placement visualization
-        save_topology(G, f"placement_{i + 1}.pdf", placed_nodes=mapping.values(), placed_edges=placed_edges, label_mapping=mapping)
+        service_instances.append(service_G)
+        all_placements.append(instance_placements)
     
-    # Update resource allocations based on placements
-    update_resource_requirements(G, placements, service_instances)
     
     # Print final resource allocations
     print("Final resource allocations:")
@@ -150,6 +166,8 @@ def main():
         print(f"Node {node}: CPU {G.nodes[node]['CPU']}")
     for u, v in G.edges():
         print(f"Edge ({u}, {v}): Bandwidth {G[u][v]['bandwidth']}")
+
+
     
 if __name__ == "__main__":
     main()

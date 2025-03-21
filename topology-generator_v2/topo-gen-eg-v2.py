@@ -43,23 +43,18 @@ def saveTopology(G, outputFile, placed_nodes=None, placed_edges=None, label_mapp
 
     edge_labels = {(u, v): f"{G[u][v].get('bandwidth', 'N/A')} Mbps" for u, v in G.edges()}
 
-    # Ensure valid lists
     placed_nodes = placed_nodes if placed_nodes is not None else []
     placed_edges = placed_edges if placed_edges is not None else []
     
-    # Default labels to numerical unless mapped
     labels = {node: str(node) for node in G.nodes()}
     if label_mapping:
-        labels.update(label_mapping)  # Apply custom letter labels for red nodes
+        labels.update(label_mapping)  
 
-    # Separate edges into gray (original) and red (placed)
     gray_edges = [edge for edge in G.edges() if edge not in placed_edges]
     red_edges = placed_edges
 
-    # Node colors: Red for placed nodes, gray for original nodes
     node_colors = ['red' if node in placed_nodes else 'gray' for node in G.nodes()]
 
-    # Draw the network
     nx.draw(G, pos, labels=labels, with_labels=True, node_color=node_colors, edge_color='gray', node_size=500)
     nx.draw_networkx_edges(G, pos, edgelist=red_edges, edge_color='red', width=2)
     nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='blue', font_size=8)
@@ -77,21 +72,16 @@ def generate_all_possible_placements(G, new_topo):
 
     G_nodes = list(G.nodes())
 
-    # Generate all possible mappings
     for idx, perm in enumerate(permutations(G_nodes, len(new_topo_nodes))):
         mapping = {new_topo_nodes[i]: perm[i] for i in range(len(new_topo_nodes))}
 
-        # Ensure all mapped nodes exist before accessing them
         if any(node not in mapping for node in new_topo_nodes):
             continue  # Skip if mapping is incomplete
 
-        # Create a label mapping that keeps red nodes as letters
         label_mapping = {perm[i]: new_topo_nodes[i] for i in range(len(new_topo_nodes))}
 
-        # Determine placed nodes
         placed_nodes = list(mapping.values())
 
-        # Determine placed edges using existing paths
         placed_edges = []
         for u, v in new_topo_edges:
             mapped_u, mapped_v = mapping[u], mapping[v]
@@ -99,12 +89,10 @@ def generate_all_possible_placements(G, new_topo):
                 shortest_path = nx.shortest_path(G, mapped_u, mapped_v)  # Find shortest existing path
                 placed_edges.extend(zip(shortest_path[:-1], shortest_path[1:]))  # Add path edges
 
-        # Save possibility with updated labels
         saveTopology(G, f"possibility_{idx + 1}.pdf", placed_nodes, placed_edges, label_mapping)
 
 
 def main():
-    # Read config
     with open("sample-config_copy", 'r') as cFile:
         config = json.load(cFile)
     

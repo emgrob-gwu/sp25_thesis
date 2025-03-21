@@ -149,6 +149,12 @@ def main():
         
         instance_placements = []
         for j in range(placements_per_instance):
+            #reset resource requirements 
+            for u in G.nodes():
+                G.nodes[u]['CPU'] = 0  
+            for u, v in G.edges():
+                G[u][v]['bandwidth'] = 0 
+
             mapping, placed_edges = heuristic_placement(G, service_G)
             instance_placements.append(mapping)
             update_resource_requirements(G, [mapping], [service_G])
